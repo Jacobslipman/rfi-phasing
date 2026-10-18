@@ -100,7 +100,7 @@ def main():
     os.makedirs(outdir, exist_ok=True)
  
     uvd = UVData()
-    uvd.read(ms_path)
+    uvd.read(ms_path, polarizations=['xx', 'yy'])
  
     dfs = {}
     for cat in ('V2M', 'V2MO'):
@@ -112,7 +112,7 @@ def main():
     times = np.unique(uvd.time_array)
     freqs = uvd.freq_array
  
-    uvd_xx_yy = uvd.select(polarizations=['xx', 'yy'], inplace=False)
+    uvd_xx_yy = uvd
     uvd_xx_yy.reorder_blts(order='time', minor_order='baseline')
     vis = uvd_xx_yy.data_array.reshape(uvd_xx_yy.Ntimes, uvd_xx_yy.Nbls, uvd_xx_yy.Nfreqs, uvd_xx_yy.Npols)
  
@@ -122,7 +122,8 @@ def main():
         vis_sub[t] = vis[t] - np.mean(refs, axis=0)
  
     uvd_xx_yy.data_array = vis_sub.reshape(uvd_xx_yy.data_array.shape)
- 
+    del vis, refs
+    
     for cat, df in dfs.items():
         for norad_id in df.NORAD.unique():
             try:
