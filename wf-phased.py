@@ -48,7 +48,7 @@ def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     
     return u, v, F, sel, on, l0, m0
 
-def run_norad(uvd, uvd_xx_yy, df, obsid, norad_id, times, freqs, outdir):
+def run_norad(uvd, uvd_xx_yy, df, obsid, cat, norad_id, times, freqs, outdir):
     track = df.loc[df.NORAD == norad_id, ['step', 'RA_deg', 'Dec_deg', 'sep_deg']].sort_values('step')
     steps = track.step.to_numpy()
  
@@ -82,7 +82,7 @@ def run_norad(uvd, uvd_xx_yy, df, obsid, norad_id, times, freqs, outdir):
         plt.xlabel('MHz')
         plt.ylabel('step')
         plt.title(f'{name}, ephem-phased, steps {steps[0]} to {steps[-1]}, NORAD {norad_id}, OBSID {obsid}')
-        plt.savefig(os.path.join(outdir, f'wf_{name}_NORAD{norad_id}_k{steps[0]}-{steps[-1]}_OBSID{obsid}.png'),
+        plt.savefig(os.path.join(outdir, f'wf_{name}_{cat}_NORAD{norad_id}_k{steps[0]}-{steps[-1]}_OBSID{obsid}.png'),
                     dpi=150, bbox_inches='tight')
         plt.close()
  
@@ -101,12 +101,12 @@ def main():
     uvd = UVData()
     uvd.read(f'{filepath}/{obsid}_calib_subtracted.ms')
  
-    with open(f'/oscar/data/jpober/shared/2025_RFI/starlink_catalogs/V2M_crossings.pkl', 'rb') as file:
-        data = pickle.load(file)
-    df = pd.DataFrame(data)
-    df = df[df.OBSID == obsid]
-    norads = df.NORAD.unique()
-    print(f'obsid {obsid}: {len(norads)} NORADs')
+    dfs = {}
+    for cat in ('V2M', 'V2MO'):
+        with open(f'/oscar/data/jpober/shared/2025_RFI/starlink_catalogs/{cat}_crossings.pkl', 'rb') as file:
+            df = pd.DataFrame(pickle.load(file))
+        dfs[cat] = df[df.OBSID == obsid]
+        print(f'{cat}: {dfs[cat].NORAD.nunique()} NORADs')
  
     times = np.unique(uvd.time_array)
     freqs = uvd.freq_array
@@ -122,12 +122,13 @@ def main():
  
     uvd_xx_yy.data_array = vis_sub.reshape(uvd_xx_yy.data_array.shape)
  
-    for norad_id in norads:
-        try:
-            run_norad(uvd, uvd_xx_yy, df, obsid, norad_id, times, freqs, outdir)
-        except Exception as e:
-            print(f'NORAD {norad_id}: FAILED ({type(e).__name__}: {e})')
-            plt.close('all')
+    for cat, df in dfs.items():
+        for norad_id in df.NORAD.unique():
+            try:
+                run_norad(uvd, uvd_xx_yy, df, obsid, cat, norad_id, times, freqs, outdir)
+            except Exception as e:
+                print(f'{cat} NORAD {norad_id}: FAILED ({type(e).__name__}: {e})')
+                plt.close('all')
 
 if __name__ == '__main__':
     main()
