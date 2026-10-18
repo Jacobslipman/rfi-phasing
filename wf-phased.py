@@ -1,27 +1,15 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
+import os
+import argparse
 import pickle
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib
 matplotlib.use('Agg')
-from casacore.tables import table 
+import matplotlib.pyplot as plt
+from casacore.tables import table
 from pyuvdata import UVData
-from matplotlib.animation import FFMpegWriter
 
-
-# In[ ]:
-
-
-filepath = "/oscar/data/jpober/shared/2025_RFI/eggs/calib_subtracted/"
-
-
-# In[2]:
-
+filepath = "/oscar/data/jpober/shared/2025_RFI/eggs/calib_subtracted"
 
 def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     c = 299792458.0
@@ -104,10 +92,6 @@ def run_norad(uvd, uvd_xx_yy, df, obsid, norad_id, times, freqs, outdir):
  
     print(f'NORAD {norad_id}: saved')
 
-
-# In[ ]:
-
-
 def main():
     p = argparse.ArgumentParser(description='Save XX+YY, XX, YY ephem-phased waterfalls for every NORAD in an obsid.')
     p.add_argument('obsid', type=int)
@@ -119,9 +103,9 @@ def main():
     os.makedirs(outdir, exist_ok=True)
  
     uvd = UVData()
-    uvd.read(f'{DATA_DIR}/{obsid}_calib_subtracted.ms')
+    uvd.read(f'{filepath}/{obsid}_calib_subtracted.ms')
  
-    with open(f'{DATA_DIR}/V2M_crossings.pkl', 'rb') as file:
+    with open(f'/oscar/data/jpober/shared/2025_RFI/starlink_catalogs/V2M_crossings.pkl', 'rb') as file:
         data = pickle.load(file)
     df = pd.DataFrame(data)
     df = df[df.OBSID == obsid]
@@ -148,10 +132,6 @@ def main():
         except Exception as e:
             print(f'NORAD {norad_id}: FAILED ({type(e).__name__}: {e})')
             plt.close('all')
-
-
-# In[ ]:
-
 
 if __name__ == '__main__':
     main()
