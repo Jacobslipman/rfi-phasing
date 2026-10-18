@@ -90,16 +90,17 @@ def run_norad(uvd, uvd_xx_yy, df, obsid, cat, norad_id, times, freqs, outdir):
 
 def main():
     p = argparse.ArgumentParser(description='Save XX+YY, XX, YY ephem-phased waterfalls for every NORAD in an obsid.')
-    p.add_argument('obsid', type=int)
+    p.add_argument('ms_path', help='full path to the .ms')
     p.add_argument('--outdir', default=None, help='output directory (default: plots/<obsid>)')
     args = p.parse_args()
  
-    obsid = args.obsid
+    ms_path = args.ms_path
+    obsid = int(os.path.basename(os.path.normpath(ms_path)).split('_')[0])
     outdir = args.outdir or os.path.join('plots', str(obsid))
     os.makedirs(outdir, exist_ok=True)
  
     uvd = UVData()
-    uvd.read(f'{filepath}/{obsid}_calib_subtracted.ms')
+    uvd.read(ms_path)
  
     dfs = {}
     for cat in ('V2M', 'V2MO'):
