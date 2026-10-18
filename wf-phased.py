@@ -48,10 +48,6 @@ def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     
     return u, v, F, sel, on, l0, m0
 
-
-# In[ ]:
-
-
 def run_norad(uvd, uvd_xx_yy, df, obsid, norad_id, times, freqs, outdir):
     track = df.loc[df.NORAD == norad_id, ['step', 'RA_deg', 'Dec_deg', 'sep_deg']].sort_values('step')
     steps = track.step.to_numpy()
