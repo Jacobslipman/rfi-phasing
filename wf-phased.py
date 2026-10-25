@@ -6,10 +6,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from casacore.tables import table
 from pyuvdata import UVData
-
-filepath = "/oscar/data/jpober/shared/2025_RFI/eggs/calib_subtracted"
 
 def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     c = 299792458.0
@@ -29,7 +26,7 @@ def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     theta = np.arctan2(m2 - m1, l2 - l1)
     l0, m0 = (l1 + l2) / 2, (m1 + m2) / 2
 
-    freqs = np.ravel(uvd.freq_array)
+    freqs = uvd.freq_array
     nu = freqs[(freqs >= band[0]) & (freqs <= band[1])].mean()
 
     time = uvd.time_array
@@ -43,20 +40,19 @@ def streak_model(uvd, track, k, W=0.001, band=(167e6, 185e6)):
     u_perp = -u * np.sin(theta) + v * np.cos(theta)
     F = L * W * np.sinc(L * u_par) * np.sinc(W * u_perp) * np.exp(-2j * np.pi * (u * l0 + v * m0))
     
-    u_par = u * np.cos(theta) + v * np.sin(theta)
     on = np.abs(u_par) <= 1 / (3 * L)
     
     return u, v, F, sel, on, l0, m0
 
-def run_norad(uvd, uvd_xx_yy, df, obsid, cat, norad_id, times, freqs, outdir):
-    track = df.loc[df.NORAD == norad_id, ['step', 'RA_deg', 'Dec_deg', 'sep_deg']].sort_values('step')
+def run_norad(uvd, df, obsid, cat, norad_id, times, freqs, outdir):
+    track = df.loc[df.NORAD == norad_id, ['step', 'RA_deg', 'Dec_deg']].sort_values('step')
     steps = track.step.to_numpy()
  
     if not any(s + 1 in steps for s in steps):
         print(f'  NORAD {norad_id}: no consecutive steps, skipping')
         return
  
-    uvd_n = uvd_xx_yy.select(times=times[steps], inplace=False)
+    uvd_n = uvd.select(times=times[steps], inplace=False)
     uvd_n.phase(cat_name=f'NORAD {norad_id}', cat_type='ephem',
                 lon=np.radians(track.RA_deg.to_numpy()), lat=np.radians(track.Dec_deg.to_numpy()),
                 ephem_times=times[steps], phase_frame='icrs')
@@ -112,22 +108,21 @@ def main():
     times = np.unique(uvd.time_array)
     freqs = uvd.freq_array
  
-    uvd_xx_yy = uvd
-    uvd_xx_yy.reorder_blts(order='time', minor_order='baseline')
-    vis = uvd_xx_yy.data_array.reshape(uvd_xx_yy.Ntimes, uvd_xx_yy.Nbls, uvd_xx_yy.Nfreqs, uvd_xx_yy.Npols)
+    uvd.reorder_blts(order='time', minor_order='baseline')
+    vis = uvd.data_array.reshape(uvd.Ntimes, uvd.Nbls, uvd.Nfreqs, uvd.Npols)
  
     vis_sub = np.empty_like(vis)
-    for t in range(uvd_xx_yy.Ntimes):
-        refs = [vis[s] for s in (t - 4, t + 4) if 0 <= s < uvd_xx_yy.Ntimes]
+    for t in range(uvd.Ntimes):
+        refs = [vis[s] for s in (t - 4, t + 4) if 0 <= s < uvd.Ntimes]
         vis_sub[t] = vis[t] - np.mean(refs, axis=0)
  
-    uvd_xx_yy.data_array = vis_sub.reshape(uvd_xx_yy.data_array.shape)
+    uvd.data_array = vis_sub.reshape(uvd.data_array.shape)
     del vis, refs
     
     for cat, df in dfs.items():
         for norad_id in df.NORAD.unique():
             try:
-                run_norad(uvd, uvd_xx_yy, df, obsid, cat, norad_id, times, freqs, outdir)
+                run_norad(uvd, df, obsid, cat, norad_id, times, freqs, outdir)
             except Exception as e:
                 print(f'{cat} NORAD {norad_id}: FAILED ({type(e).__name__}: {e})')
                 plt.close('all')
