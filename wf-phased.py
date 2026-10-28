@@ -88,18 +88,25 @@ def main():
     p = argparse.ArgumentParser(description='Save XX+YY, XX, YY ephem-phased waterfalls for every NORAD in an obsid.')
     p.add_argument('ms_path', help='full path to the .ms')
     p.add_argument('--outdir', default=None, help='output directory (default: plots/<obsid>)')
+    p.add_argument('--d', type = int, default = 4, help='differencing offset')
+    p.add_argument('--cat', nargs='+', type=str.upper, choices=['V2M', 'V2MO'], default=['V2M', 'V2MO'],
+                   help='catalog(s) to run: V2M, V2MO, or both (default: both)')
     args = p.parse_args()
  
     ms_path = args.ms_path
     obsid = int(os.path.basename(os.path.normpath(ms_path)).split('_')[0])
     outdir = args.outdir or os.path.join('plots', str(obsid))
+    offset = args.d
     os.makedirs(outdir, exist_ok=True)
  
     uvd = UVData()
     uvd.read(ms_path, polarizations=['xx', 'yy'])
+
+    if not 1 <= offset < uvd.Ntimes:
+        raise SystemExit(f'--d must be between 1 and {uvd.Ntimes - 1}')
  
     dfs = {}
-    for cat in ('V2M', 'V2MO'):
+    for cat in args.cat:
         with open(f'/oscar/data/jpober/shared/2025_RFI/starlink_catalogs/{cat}_crossings.pkl', 'rb') as file:
             df = pd.DataFrame(pickle.load(file))
         dfs[cat] = df[df.OBSID == obsid]
@@ -113,7 +120,7 @@ def main():
  
     vis_sub = np.empty_like(vis)
     for t in range(uvd.Ntimes):
-        refs = [vis[s] for s in (t - 4, t + 4) if 0 <= s < uvd.Ntimes]
+        refs = [vis[s] for s in (t - offset, t + offset) if 0 <= s < uvd.Ntimes]
         vis_sub[t] = vis[t] - np.mean(refs, axis=0)
  
     uvd.data_array = vis_sub.reshape(uvd.data_array.shape)
